@@ -1,2 +1,2 @@
 # skylark-admin-mui
-A lightweight management system 
+A lightweight management system  
