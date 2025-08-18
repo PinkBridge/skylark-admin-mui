@@ -4,6 +4,7 @@ import React from 'react'
 import { MenuItem } from '../../../stores/userStore';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { getSystemName, getSystemVersion, getSystemDescription, getSystemLogo } from '../../../lib/config';
 
 const drawerWidth = 280;
 
@@ -40,15 +41,15 @@ export default function MenuBar({ mobileOpen, handleDrawerToggle, menus }:
             variant="h6"
             sx={{ color: 'white', fontWeight: 'bold' }}
           >
-            QA
+            {getSystemLogo()}
           </Typography>
         </Box>
         <Box>
           <Typography className="text-lg font-bold text-black tracking-wider" variant="h6" component="h6">
-            Quick Admin
+            {getSystemName()}
           </Typography>
           <Typography className="text-sm font-semibold tracking-wider text-gray-500" variant="body2" component="p">
-            Community v1.0.1
+            {getSystemDescription()} {getSystemVersion()}
           </Typography>
         </Box>
       </Box>
