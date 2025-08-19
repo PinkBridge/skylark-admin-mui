@@ -13,7 +13,7 @@ import {
   type MRT_PaginationState,
   type MRT_SortingState,
 } from 'material-react-table'
-import { Avatar, Box, Button, DialogActions, DialogContent, DialogTitle, IconButton, Link, Tooltip, Dialog } from '@mui/material'
+import { Avatar, Box, Button, DialogActions, DialogContent, DialogTitle, IconButton, Link, Tooltip, Dialog, Chip } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import GirlIcon from '@mui/icons-material/Female'
 import BoyIcon from '@mui/icons-material/Male'
@@ -124,12 +124,12 @@ export function UsersTable() {
         header: 'Sex',
         enableSorting: false,
         Cell: ({ row }) => {
-          if (row.original.sex == "Female") {
-            return <GirlIcon sx={{ color: '#8b5cf6' }} />
-          } else if (row.original.sex == "Male") {
-            return <BoyIcon sx={{ color: '#8b5cf6' }} />
+          if (row.original.sex == "Male") {
+            return <Chip label="Male"  size="small" />
+          } else if (row.original.sex == "Female") {
+            return <Chip label="Female" size="small" />
           } else {
-            return <UnknownIcon sx={{ color: '#8b5cf6' }} />
+            return <Chip label="Unknown" size="small" />
           }
         },
         filterVariant: 'select',
@@ -159,12 +159,13 @@ export function UsersTable() {
       {
         id: 'isActive',
         accessorKey: 'isActive',
-        header: 'Active',
+        header: 'IsActive',
         enableEditing: false,
         Cell: ({ row }) => {
-          return row.original.isActive ? <CheckIcon sx={{ color: '#8b5cf6', fontSize: 20 }} />
-            : <CloseIcon sx={{ color: '#8b5cf6', fontSize: 20 }} />
-        },
+          return row.original.isActive ? 
+            <Chip label="YES"  size="small" /> :
+            <Chip label="NO" size="small" />
+        },  
         size: 15,
         enableSorting: false,
         Edit: () => null,
@@ -642,13 +643,13 @@ export function UsersTable() {
         <Button
           size="small"
           variant="contained"
-          color="primary"
+          color="error"
           startIcon={<ResetPasswordIcon />}
           onClick={handleResetPassword}
           disabled={Object.keys(rowSelection).length === 0}
           loading={isResettingPassword}
         >
-          Reset Password
+          Reset Password ({Object.keys(rowSelection).filter(key => rowSelection[key]).length})
         </Button>
       </Box>
     ),
