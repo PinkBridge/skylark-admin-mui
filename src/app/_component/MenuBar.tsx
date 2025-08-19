@@ -41,7 +41,7 @@ export default function MenuBar({ mobileOpen, handleDrawerToggle, menus }:
             variant="h6"
             sx={{ color: 'white', fontWeight: 'bold' }}
           >
-            {getSystemLogo()}
+            <Image src="/logo.png" alt="logo" width={40} height={40} />
           </Typography>
         </Box>
         <Box>
