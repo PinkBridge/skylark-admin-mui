@@ -18,7 +18,8 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
-import SecurityIcon from '@mui/icons-material/Security'
+import PermissionIcon from '@mui/icons-material/Security'
+import MenuSelect from '../../_component/MenuSelect'
 import {
   QueryClient,
   QueryClientProvider,
@@ -58,15 +59,16 @@ export function RolesTable() {
   const [pagination, setPagination] = useState<MRT_PaginationState>({ pageIndex: 0, pageSize: 10 })
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null)
-  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false)
-  const [rolesToDelete, setRolesToDelete] = useState<Role[]>([])
-  const [selectedRoleIdsForDelete, setSelectedRoleIdsForDelete] = useState<string[]>([])
   const [validationErrors, setValidationErrors] = useState<Record<string, string | undefined>>({})
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
   const { mutateAsync: deleteRole, isPending: isDeletingRole } = useDeleteRole()
   const { mutateAsync: createRole, isPending: isCreatingRole } = useCreateRole()
   const { mutateAsync: updateRole, isPending: isUpdatingRole } = useUpdateRole()
-  const { mutateAsync: batchDeleteRoles, isPending: isBatchDeletingRoles } = useBatchDeleteRoles()
+  const [rolePermissionDialogOpen, setRolePermissionDialogOpen] = useState(false)
+  const [selectedRoleForPermission, setSelectedRoleForPermission] = useState<Role | null>(null)
+  const [selectedMenus, setSelectedMenus] = useState<string[]>([])
+  const [isLoadingRoleMenus, setIsLoadingRoleMenus] = useState(false)
+  const { mutateAsync: saveRolePermissions, isPending: isSavingPermissions } = useSaveRolePermissions()
 
   // columns
   const columns = useMemo<MRT_ColumnDef<Role>[]>(
@@ -120,8 +122,8 @@ export function RolesTable() {
         header: 'Status',
         enableEditing: true,
         Cell: ({ row }) => {
-          return row.original.status === "Normal" ? 
-            <Chip label="Normal"  size="small" /> :
+          return row.original.status === "Normal" ?
+            <Chip label="Normal" size="small" /> :
             <Chip label="Forbidden" size="small" />
         },
         enableSorting: false,
@@ -280,42 +282,6 @@ export function RolesTable() {
     setDeleteDialogOpen(false);
     setRoleToDelete(null);
   }
-
-  /**
-   * batch delete roles
-   */
-  const handleBatchDelete = () => {
-    const selectedRoleIds = Object.keys(rowSelection).filter(key => rowSelection[key]);
-    if (selectedRoleIds.length === 0) {
-      return;
-    }
-
-    const selectedRoles = data.list.filter((role) =>
-      selectedRoleIds.includes(role.id)
-    );
-
-    setSelectedRoleIdsForDelete(selectedRoleIds);
-    setRolesToDelete(selectedRoles);
-    setBatchDeleteDialogOpen(true);
-  }
-
-  const handleBatchDeleteConfirm = async () => {
-    try {
-      await batchDeleteRoles(selectedRoleIdsForDelete);
-      setBatchDeleteDialogOpen(false);
-      setRolesToDelete([]);
-      setSelectedRoleIdsForDelete([]);
-      setRowSelection({});
-    } catch (error) {
-      console.error('Failed to batch delete roles:', error);
-    }
-  }
-
-  const handleBatchDeleteCancel = () => {
-    setBatchDeleteDialogOpen(false);
-    setRolesToDelete([]);
-    setSelectedRoleIdsForDelete([]);
-  }
   function useDeleteRole() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -367,7 +333,7 @@ export function RolesTable() {
       ...values,
       sort: typeof values.sort === 'string' ? parseInt(values.sort) || 0 : values.sort,
     };
-    
+
     const newValidationErrors = validateRole(processedValues);
     if (Object.values(newValidationErrors).some((error) => error)) {
       setValidationErrors(newValidationErrors);
@@ -444,7 +410,7 @@ export function RolesTable() {
       ...values,
       sort: typeof values.sort === 'string' ? parseInt(values.sort) || 0 : values.sort,
     };
-    
+
     const newValidationErrors = validateRole(processedValues);
     if (Object.values(newValidationErrors).some((error) => error)) {
       setValidationErrors(newValidationErrors);
@@ -501,46 +467,27 @@ export function RolesTable() {
      });
    }
 
-   function useBatchDeleteRoles() {
-     const queryClient = useQueryClient();
-     return useMutation({
-       mutationFn: async (roleIds: string[]) => {
-         console.log('batch deleting roles:', roleIds)
-         try {
-           const response = await api('/api/roles/batch', {
-             method: 'DELETE',
-             body: JSON.stringify({ ids: roleIds }),
-           })
-           return response;
-         } catch (error) {
-           console.error('Error batch deleting roles:', error);
-           throw error;
-         }
-       },
-       onMutate: (deletedRoleIds: string[]) => {
-         queryClient.setQueryData(
-           ['roles-list'],
-           (prevData: any) => {
-             if (!prevData?.data?.data?.list) {
-               return prevData;
-             }
-             return {
-               ...prevData,
-               data: {
-                 ...prevData.data,
-                 data: {
-                   ...prevData.data.data,
-                   list: prevData.data.data.list.filter((role: Role) => !deletedRoleIds.includes(role.id)),
-                   total: prevData.data.data.total - deletedRoleIds.length,
-                 },
-               },
-             };
-           },
-         );
-       },
-       onSettled: () => queryClient.invalidateQueries({ queryKey: ['roles-list'] }),
-     });
-   }
+  function useSaveRolePermissions() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: async ({ roleId, menuIds }: { roleId: string; menuIds: string[] }) => {
+        console.log('saving role permissions:', { roleId, menuIds })
+        try {
+          const response = await api(`/api/roles/${roleId}/menus`, {
+            method: 'POST',
+            body: JSON.stringify({ menuIds }),
+          })
+          return response;
+        } catch (error) {
+          console.error('Error saving role permissions:', error);
+          throw error;
+        }
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['roles-list'] });
+      },
+    });
+  }
 
   // table
   const table = useMaterialReactTable({
@@ -615,19 +562,22 @@ export function RolesTable() {
         </Tooltip>
         <Button size="small" variant="contained" color="primary" startIcon={<AddIcon />}
           onClick={() => {
-            table.setCreatingRow(true);
+            table.setCreatingRow(true)
           }}>
           New Role
         </Button>
-        <Button
-          size="small"
-          variant="contained"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={handleBatchDelete}
-          disabled={Object.keys(rowSelection).filter(key => rowSelection[key]).length === 0}
-        >
-          Delete Selected ({Object.keys(rowSelection).filter(key => rowSelection[key]).length})
+        <Button size="small" variant="contained" color="primary" startIcon={<PermissionIcon />}
+          disabled={Object.keys(rowSelection).filter(key => rowSelection[key]).length !== 1}
+          onClick={async () => {
+            const roleId = Object.keys(rowSelection).filter(key => rowSelection[key])[0]
+            const response = await api(`/api/roles/${roleId}/menus`, {
+              method: 'GET',
+            })
+            const roleMenus = response.data || [];
+            setSelectedMenus(roleMenus);
+            setRolePermissionDialogOpen(true);
+          }}>
+          Role Permission
         </Button>
       </Box>
     ),
@@ -680,82 +630,82 @@ export function RolesTable() {
     <>
       <MaterialReactTable table={table} />
 
-       <Dialog
-         open={deleteDialogOpen}
-         onClose={handleDeleteCancel}
-         aria-labelledby="delete-dialog-title"
-         aria-describedby="delete-dialog-description"
-       >
-         <DialogTitle id="delete-dialog-title">
-           Confirm Delete Role
-         </DialogTitle>
-         <DialogContent>
-           <Box sx={{ mt: 1 }}>
-             Are you sure you want to delete role <strong>{roleToDelete?.name}</strong>?
-             <br />
-             This action cannot be undone.
-           </Box>
-         </DialogContent>
-         <DialogActions>
-           <Button onClick={handleDeleteCancel} color="primary">
-             Cancel
-           </Button>
-           <Button
-             onClick={handleDeleteConfirm}
-             variant="contained"
-             color="error"
-           >
-             Delete
-           </Button>
-         </DialogActions>
-       </Dialog>
-
-       {/* Batch delete confirmation dialog */}
-       <Dialog
-         open={batchDeleteDialogOpen}
-         onClose={handleBatchDeleteCancel}
-         aria-labelledby="batch-delete-dialog-title"
-         aria-describedby="batch-delete-dialog-description"
-       >
-         <DialogTitle id="batch-delete-dialog-title">
-           Confirm Batch Delete Roles
-         </DialogTitle>
-         <DialogContent>
-           <Box sx={{ mt: 1 }}>
-             Are you sure you want to delete the following roles?
-             <br />
-             <Box sx={{ mt: 2, maxHeight: 200, overflow: 'auto' }}>
-               {rolesToDelete.map((role, index) => (
-                 <Box key={role.id} sx={{ py: 0.5 }}>
-                   • {role.name} ({role.code})
-                 </Box>
-               ))}
-               {selectedRoleIdsForDelete.length > rolesToDelete.length && (
-                 <Box sx={{ py: 0.5, color: 'text.secondary', fontStyle: 'italic' }}>
-                   • ... and {selectedRoleIdsForDelete.length - rolesToDelete.length} more roles from other pages
-                 </Box>
-               )}
-             </Box>
-             <br />
-             This action cannot be undone.
-           </Box>
-         </DialogContent>
-         <DialogActions>
-           <Button onClick={handleBatchDeleteCancel} color="primary">
-             Cancel
-           </Button>
-           <Button
-             onClick={handleBatchDeleteConfirm}
-             variant="contained"
-             color="error"
-             disabled={isBatchDeletingRoles}
-           >
-             {isBatchDeletingRoles ? 'Deleting...' : 'Delete All'}
-           </Button>
-         </DialogActions>
-       </Dialog>
-     </>
-   )
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+      >
+        <DialogTitle id="delete-dialog-title">
+          Confirm Delete Role
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            Are you sure you want to delete role <strong>{roleToDelete?.name}</strong>?
+            <br />
+            This action cannot be undone.
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} color="primary">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={rolePermissionDialogOpen}
+        onClose={() => {
+          console.log('Dialog closing');
+          setRolePermissionDialogOpen(false);
+        }}
+        aria-labelledby="role-permission-dialog-title"
+        aria-describedby="role-permission-dialog-description"
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle id="role-permission-dialog-title">
+          Role Permission - {selectedRoleForPermission?.name} ({selectedRoleForPermission?.code})
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            <MenuSelect
+              selectedMenus={selectedMenus}
+              onMenuChange={setSelectedMenus}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRolePermissionDialogOpen(false)} color="primary">
+            Cancel
+          </Button>
+          <Button
+            onClick={async () => {
+              console.log('selectedMenus', selectedMenus)
+              const roleId = Object.keys(rowSelection).filter(key => rowSelection[key])[0]
+              const response = await api(`/api/roles/${roleId}/menus`, {
+                method: 'POST',
+                body: JSON.stringify({ menuCodes: selectedMenus }),
+              })
+              console.log('response', response)
+              setRolePermissionDialogOpen(false)
+            }}
+            variant="contained"
+            color="primary"
+            disabled={isSavingPermissions}
+          >
+            {isSavingPermissions ? 'Saving...' : 'Save Permissions'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
 }
 
 const ReactQueryDevtoolsProduction = lazy(() =>

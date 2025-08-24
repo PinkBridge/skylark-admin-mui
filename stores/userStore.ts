@@ -23,6 +23,7 @@ export interface MenuItem {
   path: string
   redirect: string
   level: number
+  code: string
 }
 
 interface User {
